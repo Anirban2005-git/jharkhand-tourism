@@ -18,7 +18,7 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from the dummy.sih directory
-const publicPath = path.join(__dirname, "../dummy.sih");
+const publicPath = path.join(__dirname, "dummy.sih");
 app.use(express.static(publicPath));
 
 // Health check
@@ -27,11 +27,11 @@ app.get("/api/health", (req, res) => {
 });
 
 // Payment routes (simplified for testing)
-import paymentRoutes from "../backend/routes/payments-simple.js";
+import paymentRoutes from "./backend/routes/payments-simple.js";
 app.use("/api/payments", paymentRoutes);
 
 // Feedback routes
-import feedbackRoutes from "../backend/routes/feedback.js";
+import feedbackRoutes from "./backend/routes/feedback.js";
 app.use("/api/feedback", feedbackRoutes);
 
 // Serve digitalanother.html on root
