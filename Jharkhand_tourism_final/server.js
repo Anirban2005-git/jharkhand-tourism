@@ -17,8 +17,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ FIX: Correct static path
-const publicPath = path.join(__dirname, "dummy.sih");
+// Serve static files from the dummy.sih directory
+const publicPath = path.join(__dirname, "../dummy.sih");
 app.use(express.static(publicPath));
 
 // Health check
@@ -26,21 +26,17 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });
 });
 
-// ✅ FIX: Correct import paths
-import paymentRoutes from "./routes/payments-simple.js";
+// Payment routes (simplified for testing)
+import paymentRoutes from "../backend/routes/payments-simple.js";
 app.use("/api/payments", paymentRoutes);
 
 // Feedback routes
-import feedbackRoutes from "./routes/feedback.js";
+import feedbackRoutes from "../backend/routes/feedback.js";
 app.use("/api/feedback", feedbackRoutes);
 
-// ✅ EXTRA SAFETY: fallback if file not found
+// Serve digitalanother.html on root
 app.get("/", (req, res) => {
-  res.sendFile(path.join(publicPath, "digitalanother.html"), (err) => {
-    if (err) {
-      res.send("Jharkhand Tourism Backend is running 🚀");
-    }
-  });
+  res.sendFile(path.join(publicPath, "digitalanother.html"));
 });
 
 // HTTP server
