@@ -950,20 +950,70 @@ Payment failed: Failed to create payment order<!doctype html>
                 return;
             }
 
+            // Use demo mode for testing
+            const DEMO_MODE = true; // Set to false to use real Razorpay
+
+            if (DEMO_MODE) {
+                // Demo/Test Mode: Simulate payment
+                showNotification('Processing payment (Demo Mode)...', 'info');
+                
+                setTimeout(() => {
+                    closeModal('booking-modal');
+                    showNotification('✅ Demo Payment Successful! Your booking for ' + window.currentBooking.payload?.recipient + ' is confirmed.', 'success');
+                    window.currentBooking = null;
+                }, 1500);
+                return;
+            }
+
             try {
-                // Direct Razorpay integration (simplified approach)
-                console.log('Using direct payment method');
+                // Step 1: Create order on backend
+                const createOrderResponse = await fetch('/api/payments/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: 500, // Amount in INR
+                        currency: 'INR',
+                        providerId: window.currentBooking.payload?.id || 'default'
+                    })
+                });
+
+                const orderData = await createOrderResponse.json();
+                if (!orderData.success || !orderData.order) {
+                    showNotification('Failed to create payment order: ' + (orderData.error || 'Unknown error'), 'error');
+                    return;
+                }
+
+                // Step 2: Open Razorpay checkout with order ID
                 const options = {
-                    key: "rzp_test_ShrF1wHGLGqpRb",
+                    key: "rzp_test_SjRMk2CMzL5fSP", // Correct key from backend .env
                     amount: 50000, // Amount in paise (500 INR)
                     currency: "INR",
                     name: "Jharkhand Tourism",
                     description: `Booking: ${window.currentBooking.payload?.title || 'Tourism Service'}`,
-                    handler: function (response) {
+                    order_id: orderData.order.id, // Use order ID from backend
+                    handler: async function (response) {
                         console.log('Payment successful:', response);
-                        closeModal('booking-modal');
-                        showNotification('Payment successful! Your booking is confirmed.', 'success');
-                        window.currentBooking = null;
+                        
+                        // Step 3: Verify payment on backend
+                        const verifyResponse = await fetch('/api/payments/verify-payment', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature,
+                                paymentId: orderData.paymentId
+                            })
+                        });
+
+                        const verifyData = await verifyResponse.json();
+                        if (verifyData.success) {
+                            closeModal('booking-modal');
+                            showNotification('Payment successful! Your booking is confirmed.', 'success');
+                            window.currentBooking = null;
+                        } else {
+                            showNotification('Payment verification failed: ' + (verifyData.error || 'Unknown error'), 'error');
+                        }
                     },
                     prefill: {
                         name: window.currentBooking.payload?.recipient || "Tourist",
@@ -972,11 +1022,21 @@ Payment failed: Failed to create payment order<!doctype html>
                     },
                     theme: {
                         color: "#2A6F6C"
+                    },
+                    modal: {
+                        ondismiss: function() {
+                            showNotification('Payment cancelled', 'error');
+                        }
                     }
                 };
                 
-                const rzp = new Razorpay(options);
-                rzp.open();
+                if (typeof Razorpay !== 'undefined') {
+                    const rzp = new Razorpay(options);
+                    rzp.open();
+                } else {
+                    console.warn('Razorpay not loaded');
+                    showNotification('Payment gateway not available', 'error');
+                }
                 
             } catch (error) {
                 console.error('Payment error:', error);

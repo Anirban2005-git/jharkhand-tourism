@@ -27,11 +27,31 @@ if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
 const payments = {};
 
 router.get('/', (req, res) => {
-  res.json({ success: true, message: 'Payments router is active' });
+  res.json({ 
+    success: true, 
+    message: 'Payments router is active',
+    razorpayConfigured: !!razorpay,
+    keys: {
+      keyId: RAZORPAY_KEY_ID ? `${RAZORPAY_KEY_ID.substring(0, 10)}...` : '❌ MISSING',
+      keySecret: RAZORPAY_KEY_SECRET ? '✓ Set' : '❌ MISSING'
+    }
+  });
+});
+
+router.get('/status', (req, res) => {
+  res.json({
+    razorpayConfigured: !!razorpay,
+    RAZORPAY_KEY_ID: RAZORPAY_KEY_ID || 'MISSING',
+    RAZORPAY_KEY_SECRET: RAZORPAY_KEY_SECRET ? '***' : 'MISSING',
+    razorpayInstance: razorpay ? 'Initialized' : 'Not Initialized'
+  });
 });
 
 router.post('/create-order', async (req, res) => {
   try {
+    console.log('🔵 [CREATE ORDER] Request received:', req.body);
+    console.log('🔵 [CREATE ORDER] Razorpay config:', { KEY_ID: RAZORPAY_KEY_ID ? '✓ Set' : '✗ Missing', KEY_SECRET: RAZORPAY_KEY_SECRET ? '✓ Set' : '✗ Missing' });
+    
     const { amount, currency = 'INR', providerId } = req.body;
 
     if (!amount || isNaN(amount)) {
@@ -39,24 +59,32 @@ router.post('/create-order', async (req, res) => {
     }
 
     const paymentId = `pay_${Date.now()}`;
+    const amountInPaise = Math.round(amount * 100);
+    
     const options = {
-      amount: Math.round(amount * 100),
+      amount: amountInPaise,
       currency,
       receipt: `receipt_${Date.now()}`,
+      payment_capture: 1,
       notes: {
         providerId: providerId || 'default',
         paymentId,
       },
     };
 
+    console.log('🔵 [CREATE ORDER] Order options:', options);
+
     if (!razorpay) {
+      console.error('❌ [CREATE ORDER] Razorpay instance not initialized');
       return res.status(500).json({
         success: false,
         error: 'Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in backend/.env.',
       });
     }
 
+    console.log('🔵 [CREATE ORDER] Creating order with Razorpay...');
     const order = await razorpay.orders.create(options);
+    console.log('✅ [CREATE ORDER] Order created successfully:', order);
 
     payments[paymentId] = {
       id: paymentId,
@@ -70,8 +98,12 @@ router.post('/create-order', async (req, res) => {
 
     res.json({ success: true, order, paymentId });
   } catch (error) {
-    console.error('Error creating order:', error);
-    res.status(500).json({ success: false, error: error.message || 'Failed to create order' });
+    console.error('❌ [CREATE ORDER] Error:', error.message, error.response?.data || error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to create order',
+      details: error.response?.data || null
+    });
   }
 });
 
@@ -91,7 +123,7 @@ router.post('/verify-payment', async (req, res) => {
     }
 
     const generatedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .createHmac('sha256', RAZORPAY_KEY_SECRET) // ✅ FIX 2 (changed)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 

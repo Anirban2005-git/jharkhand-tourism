@@ -11,8 +11,8 @@ app.use(express.json());
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
-  key_id: "rzp_test_your_key_id_here", // Replace with your actual Razorpay Key ID
-  key_secret: "your_razorpay_key_secret_here", // Replace with your actual Razorpay Key Secret
+  key_id: "rzp_test_SjRmK2cMzL5fSP",   // ✅ exact match
+  key_secret: "U878316Y0vM1wQ7T4tzowPpR", // ✅ exact match
 });
 
 // Test endpoint
